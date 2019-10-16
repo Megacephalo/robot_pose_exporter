@@ -3,7 +3,7 @@
 import rospy
 import math
 import tf
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose
 import time
 
 from write_to_csv_lib.write_to_csv import *
@@ -12,16 +12,16 @@ class tf_extract_pose:
     def __init__(self):
         self.listener = tf.TransformListener()
 
-        self.from_frame = rospy.get_param('from_frame', 'map')
-        self.to_frame = rospy.get_param('to_frame', 'odom')
-        self.wait_thresh = rospy.get_param('tf_timeout', 10.0)
-        self.pubPose_topic = rospy.get_param('pub_pose_topic', 'estimated_state')
-        self.outputCSVFile = rospy.get_param('output_csv_file', '/home/charly_huang/data_log/robot_pose')
+        self.from_frame = rospy.get_param('~from_frame', 'map')
+        self.to_frame = rospy.get_param('~to_frame', 'odom')
+        self.wait_thresh = rospy.get_param('~tf_timeout', 10.0)
+        self.pubPose_topic = rospy.get_param('~pub_pose_topic', 'estimated_state')
+        self.outputCSVFile = rospy.get_param('~output_csv_file', '/home/charly_huang/data_log/robot_pose')
 
         self.pose_pub = rospy.Publisher(self.pubPose_topic, PoseStamped, queue_size = 10)
 
         # Write poses to CSV file
-        self.poseWriter = writeToCSV( self.outputCSVFile )
+        self.poseWriter = writeToCSV( self.outputCSVFile ) # by default poseMode = Pose and not PoseStamped
 
         rospy.loginfo('Waiting to acquire TF transform')
         self.listener.waitForTransform(self.from_frame, self.to_frame, rospy.Time(0), rospy.Duration(self.wait_thresh))
@@ -57,10 +57,20 @@ class tf_extract_pose:
 
             self.pose_pub.publish( self.robot_pose )
 
-            # Output to CSV file
-            self.poseWriter.outputPoseToCSV( self.robot_pose )
-            
+            # self.poseWriter.outputPoseStampedToCSV( self.robot_pose )
 
+            # Output to CSV file
+            equiv_pose = Pose()
+            equiv_pose.position.x = trans[0]
+            equiv_pose.position.y = trans[1]
+            equiv_pose.position.z = trans[2]
+
+            equiv_pose.orientation.x = rot[0]
+            equiv_pose.orientation.y = rot[1]
+            equiv_pose.orientation.z = rot[2]
+            equiv_pose.orientation.w = rot[3]
+
+            self.poseWriter.savePoseToCSV( equiv_pose )
 
 if __name__=='__main__':
     node_name = 'robot_pose_exporter'
